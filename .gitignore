@@ -35,3 +35,17 @@ checkpoints/
 Thumbs.db
 
 *.egg-info/
+
+# Environment variables and API credentials
+.env
+.env.*
+!.env.example
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Local medical datasets
+data/external/
