@@ -1,0 +1,35 @@
+﻿# Python environments
+.venv/
+venv/
+env/
+
+# Python cache and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Local research datasets
+data/raw/
+data/processed/
+data/external/
+
+# Generated outputs and model weights
+artifacts/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
