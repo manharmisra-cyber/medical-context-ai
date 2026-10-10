@@ -8,7 +8,7 @@ Medical Context AI aims to explore how different types of medical information ca
 
 Rather than treating each finding in isolation, the project investigates whether a structured knowledge graph and transparent reasoning methods can help explain relationships between evidence and possible medical conditions.
 
-**Current status:** Initial development · Version `0.0.1` · Research only
+**Current status:** Initial development · Version `0.0.1` MONDO version `v2026-10-06` · Research only
 
 ---
 
