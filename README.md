@@ -170,8 +170,7 @@ Contribution guidelines and licensing terms will be added as the project matures
 
 ## License
 
-The project's license has not yet been selected. Until a license is added, do not assume that the repository grants permission to redistribute or reuse its contents.
-
+This project has a MIT License.
 ---
 
 **Medical Context AI is a research project, not a promise of medical accuracy.** Its progress will be measured by transparent methods, reproducible results, and carefully documented limitations—not by the number of conditions it claims to recognize.
