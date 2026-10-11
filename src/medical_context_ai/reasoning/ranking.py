@@ -10,6 +10,8 @@ class RankedDisease:
     score: float
     matched_phenotypes: set[str]
     missing_phenotypes: set[str]
+    coverage: float
+    classification: str
 
 
 def rank_diseases(
@@ -17,43 +19,63 @@ def rank_diseases(
     associations: dict[str, set[str]],
     weights: dict[str, float] | None = None,
 ) -> list[RankedDisease]:
-    """
-    Prototype ranking based on HPO associations.
 
-    Scores are heuristic and NOT disease probabilities.
-    """
     weights = weights or {}
+    requested = evidence.present_phenotypes
+
+    if not requested:
+        return []
+
     results = []
 
-    for disease_id, phenotypes in associations.items():
-        matched = evidence.present_phenotypes & phenotypes
-        missing = evidence.absent_phenotypes & phenotypes
+    for disease_id, disease_phenotypes in associations.items():
 
-        if not matched:
+        matched = requested & disease_phenotypes
+        matched_count = len(matched)
+        total_count = len(requested)
+
+        coverage = matched_count / total_count
+
+        if coverage == 1.0:
+            classification = "MATCH"
+
+        elif coverage > 0.5:
+            classification = "PARTIAL MATCH"
+
+        else:
+            # Ignore diseases matching 50% or fewer findings
             continue
 
-        positive_score = sum(
+        absent_conflicts = (
+            evidence.absent_phenotypes & disease_phenotypes
+        )
+
+        score = sum(
             weights.get(phenotype, 1.0)
             for phenotype in matched
         )
 
-        negative_score = sum(
+        score -= sum(
             weights.get(phenotype, 1.0)
-            for phenotype in missing
+            for phenotype in absent_conflicts
         )
-
-        score = positive_score - negative_score
 
         results.append(
             RankedDisease(
                 disease_id=disease_id,
                 score=score,
                 matched_phenotypes=matched,
-                missing_phenotypes=missing,
+                missing_phenotypes=absent_conflicts,
+                coverage=coverage,
+                classification=classification,
             )
         )
 
     return sorted(
         results,
-        key=lambda result: (-result.score, result.disease_id),
+        key=lambda result: (
+            -result.coverage,
+            -result.score,
+            result.disease_id,
+        ),
     )
