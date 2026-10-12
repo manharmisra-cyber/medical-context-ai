@@ -1,74 +1,63 @@
 
-from medical_context_ai.scripts.medical_data import get_medical_data
-from medical_context_ai.knowledge.hpo_terms import search_hpo_terms
+from medical_context_ai.scripts.runtime import initialize_runtime
 from medical_context_ai.knowledge.identity import normalize_external_id
 from medical_context_ai.reasoning.evidence import PatientEvidence
 from medical_context_ai.reasoning.ranking import rank_diseases
 
 
-def choose_term(query, terms):
-    matches = search_hpo_terms(query, terms, limit=8)
+def choose_term(query, terms, matcher):
+    """Ask the user to confirm an HPO concept suggested by SapBERT."""
+    while query:
+        results = matcher.search(query, top_k=5)
+        if not results:
+            print(f"No HPO candidates found for {query!r}.")
+            return None
 
-    if not matches:
-        print(f"No HPO term found for '{query}'.")
-        return None
+        print(f"\nInterpretation of: {query!r}")
+        print("-" * 55)
+        for index, result in enumerate(results, 1):
+            hpo_id = result["hpo_id"]
+            term = terms.get(hpo_id)
+            definition = (
+                term.get("definition") if isinstance(term, dict)
+                else getattr(term, "definition", None)
+            ) if term is not None else None
+            print(f"{index}. {result['name']} [{hpo_id}] "
+                  f"(similarity: {result['similarity']:.3f})")
+            if definition:
+                print(f"   Definition: {definition}")
+            else:
+                print("   Definition unavailable in loaded HPO data.")
+        print("0. None of these")
 
-    # Automatically select an exact name, synonym, or ID match.
-    normalized_query = query.strip().casefold()
-
-    exact = [
-        term for term in matches
-        if normalized_query == term.id.casefold()
-        or normalized_query == term.name.casefold()
-        or any(
-            normalized_query == synonym.casefold()
-            for synonym in term.synonyms
-        )
-    ]
-
-    if len(exact) == 1:
-        term = exact[0]
-        print(f"  {query} -> {term.name} ({term.id})")
-        return term.id
-
-    if len(matches) == 1:
-        term = matches[0]
-        print(f"  {query} -> {term.name} ({term.id})")
-        return term.id
-
-    print(f"\nMatches for '{query}':")
-
-    for index, term in enumerate(matches, 1):
-        print(f"  {index}. {term.name} [{term.id}]")
-
-    choice = input("Select number (0 to skip): ").strip()
-
-    if not choice.isdigit():
-        return None
-
-    number = int(choice)
-
-    if not 1 <= number <= len(matches):
-        return None
-
-    return matches[number - 1].id
+        while True:
+            choice = input("Select 0-5, or type a new symptom: ").strip()
+            if choice == "0":
+                return None
+            if choice.isdigit():
+                number = int(choice)
+                if 1 <= number <= len(results):
+                    selected = results[number - 1]
+                    print(f"Confirmed: {selected['name']} [{selected['hpo_id']}]")
+                    return selected["hpo_id"]
+                print("Invalid selection. Choose one of the displayed numbers.")
+            elif choice:
+                query = choice
+                break
+            else:
+                print("Enter a number or a symptom.")
+    return None
 
 
-def resolve_findings(raw, terms):
-    """Convert comma-separated symptom names into HPO IDs."""
+def resolve_findings(raw, terms, matcher):
+    """Convert comma-separated phrases into user-confirmed HPO IDs."""
     selected = set()
-
     for query in raw.split(","):
         query = query.strip()
-
-        if not query:
-            continue
-
-        phenotype_id = choose_term(query, terms)
-
-        if phenotype_id:
-            selected.add(phenotype_id)
-
+        if query:
+            phenotype_id = choose_term(query, terms, matcher)
+            if phenotype_id:
+                selected.add(phenotype_id)
     return selected
 
 
@@ -81,7 +70,7 @@ def get_disease_identity(result, graph, resolver):
     if approved:
         node = graph.get_node(approved)
         name = node.label if node else external_id
-        mapping = f"Approved MONDO mapping: {approved}"
+        mapping = f"MONDO exact/approved mapping: {approved}"
 
     elif len(candidates) == 1:
         mondo_id = next(iter(candidates))
@@ -126,7 +115,10 @@ def display_result(index, result, graph, resolver, terms, total):
 
 
 def run_symptom_lookup():
-    graph, associations, terms, resolver = get_medical_data()
+    runtime = initialize_runtime()
+    graph, associations, terms, resolver = (
+        runtime.graph, runtime.associations, runtime.terms, runtime.identity_resolver
+    )
 
     print("\n========== SYMPTOM SEARCH ==========")
     print("Enter ALL symptoms separated by commas.")
@@ -134,7 +126,7 @@ def run_symptom_lookup():
 
     raw = input("\nPresent findings: ").strip()
 
-    selected = resolve_findings(raw, terms)
+    selected = resolve_findings(raw, terms, runtime.semantic_matcher)
 
     if not selected:
         print("No recognized findings selected.")
@@ -150,7 +142,7 @@ def run_symptom_lookup():
         "\nConfirmed absent findings (optional, comma-separated): "
     ).strip()
 
-    absent = resolve_findings(absent_raw, terms)
+    absent = resolve_findings(absent_raw, terms, runtime.semantic_matcher)
 
     if selected & absent:
         print("\nERROR: A finding cannot be both present and absent.")

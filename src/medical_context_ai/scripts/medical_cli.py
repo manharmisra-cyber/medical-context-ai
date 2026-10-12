@@ -1,9 +1,11 @@
+from medical_context_ai.scripts.runtime import initialize_runtime
 
 from medical_context_ai.scripts.disease_lookup import run_disease_lookup
 from medical_context_ai.scripts.symptom_lookup import run_symptom_lookup
 
 
 def main():
+    initialize_runtime()
     while True:
         print("\n" + "=" * 45)
         print("         MEDICAL CONTEXT AI")
